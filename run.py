@@ -186,10 +186,10 @@ for seq, (all_F, all_M, info) in enumerate(Testloader):
     for f in range(num_frames):
         E = all_E[0, :, f].numpy()
         # make hard label
-        E = ToLabel(E)#三通道变成一通道
+        E = ToLabel(E)  # 三通道变成一通道
 
         (lh, uh), (lw, uw) = info['pad']
-        E = E[lh[0]:-uh[0], lw[0]:-uw[0]]#去掉便于卷积使用的外边框
+        E = E[lh[0]:-uh[0], lw[0]:-uw[0]]  # 去掉便于卷积使用的外边框
 
         img_E = Image.fromarray(E)
         img_E.putpalette(palette)  # use this palette(Just correspond is ok!)使用此调色板进行对应调色

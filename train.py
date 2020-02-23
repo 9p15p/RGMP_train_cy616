@@ -194,7 +194,7 @@ if __name__ == '__main__':
     start_epoch = 0
 
     # load saved model if specified
-    if args.loadepoch == "latest" or int(args.loadepoch) >= 0  :
+    if args.loadepoch == "latest" or int(args.loadepoch) >= 0:
         print('Loading checkpoint {}@Epoch {}{}...'.format(font.BOLD, args.loadepoch, font.END))
         load_name = os.path.join(args.output_dir,
                                  '{}.pth'.format(args.loadepoch))
@@ -276,26 +276,25 @@ if __name__ == '__main__':
             num_objects = info['num_objects'][0]
 
             if (args.bptt_len < num_frames):
-                start_frame = random.randint(0, num_frames - args.bptt_len)#随机从某一帧开始
+                start_frame = random.randint(0, num_frames - args.bptt_len)  # 随机从某一帧开始
                 all_F = all_F[:, :, start_frame: start_frame + args.bptt_len]
                 all_M = all_M[:, :, start_frame: start_frame + args.bptt_len]
 
             tt = time.time()
 
-
-
             B, C, T, H, W = all_M.shape
             all_E = torch.zeros(B, C, T, H, W)
             all_E[:, 0, 0] = all_M[:, :, 0]
 
-            msv_F1, msv_P1, all_M = ToCudaVariable([all_F[:, :, 0], all_E[:, 0, 0], all_M])#msv是将加载的数据进行处理后用于程序中使用的意思
+            msv_F1, msv_P1, all_M = ToCudaVariable([all_F[:, :, 0], all_E[:, 0, 0], all_M])  # msv是将加载的数据进行处理后用于程序中使用的意思
             ms = model.module.Encoder(msv_F1, msv_P1)[0]
 
             num_bptt = all_M.shape[2]
             loss = 0
             counter = 0
             for f in range(0, num_bptt - 1):
-                output, ms = Propagate_MS(ms, model, all_F[:, :, f + 1], all_E[:, 0, f])#training with recurrence 依次输入:参考帧feature maps,model,第f+1帧的原图,第f帧的mask
+                output, ms = Propagate_MS(ms, model, all_F[:, :, f + 1], all_E[:, 0,
+                                                                         f])  # training with recurrence 依次输入:参考帧feature maps,model,第f+1帧的原图,第f帧的mask
                 all_E[:, 0, f + 1] = output.detach()
                 # loss = loss + criterion(output.permute(1, 2, 0), all_M[:, 0, f + 1].float())
                 loss = loss + criterion(output, all_M[:, 0, f + 1].float())

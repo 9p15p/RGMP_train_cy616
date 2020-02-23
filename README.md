@@ -18,7 +18,7 @@ ___
 ``` python
 DAVIS_ROOT = '<Your DAVIS path>'
 ```
-3) Download [weights.pth](https://www.dropbox.com/s/gt0kivrb2hlavi2/weights.pth?dl=0) and place it the same folde as run.py.
+3) Download [weights.pth](https://www.dropbox.com/s/gt0kivrb2hlavi2/weights.pth?dl=0) or from [baidudownload,pwd:3fnk](https://pan.baidu.com/s/1bY-0HiQGfV3AljqL5QAT4g)and place it the same folde as run.py.
 4) To run single-object video object segmentation on DAVIS-2016 validation.
 ``` 
 python run.py
