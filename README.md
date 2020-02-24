@@ -18,7 +18,8 @@ ___
 ``` python
 DAVIS_ROOT = '<Your DAVIS path>'
 ```
-3) Download [weights.pth](https://www.dropbox.com/s/gt0kivrb2hlavi2/weights.pth?dl=0) or from [baidudownload,pwd:3fnk](https://pan.baidu.com/s/1bY-0HiQGfV3AljqL5QAT4g)and place it the same folde as run.py.
+3) Download [weights.pth](https://www.dropbox.com/s/gt0kivrb2hlavi2/weights.pth?dl=0) or from [baidudownload,pwd:3fnk](https://pan.baidu.com/s/1bY-0HiQGfV3AljqL5QAT4g)   
+and place it the same folde as run.py.
 4) To run single-object video object segmentation on DAVIS-2016 validation.
 ``` 
 python run.py
@@ -31,6 +32,13 @@ python run.py -MO
 
 ## How to train a model
 ``` python3 train.py```
+### If you want use horovod
+e.g. one machine with two GPUs
+```
+horovodrun -np 2 -H localhost:2 python train.py
+```
+Details: please read this [reference](https://github.com/horovod/horovod/issues/1614)
+
 
 ## TensorBoard Support
 Install [TensorBoardX](https://github.com/lanpa/tensorboard-pytorch) to view loss, IoU and generated masks in real-time during training.
