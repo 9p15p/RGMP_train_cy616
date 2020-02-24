@@ -51,7 +51,8 @@ Install [TensorBoardX](https://github.com/lanpa/tensorboard-pytorch) to view los
 ```
 hvd.local_rank()
 ```
-来区分他们.不同的进程,他们的值不同.
+来区分他们.不同的进程,他们的值不同.  
+此外nohup和Horovod无法联用,如果关闭当前终端,则程序退出.
   
 
 
