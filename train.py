@@ -6,11 +6,18 @@ from model import *
 from utils import *
 import os
 from torch.utils.tensorboard import SummaryWriter
+import horovod.torch as hvd
 
 # Constants
 MODEL_DIR = 'saved_models'
 NUM_EPOCHS = 1000
 tensorboard_log = 'runs/demo_test'
+
+# Initialize Horovod
+hvd.init()
+
+# Pin GPU to be used to process local rank (one GPU per process)
+torch.cuda.set_device(hvd.local_rank())
 
 
 def Propagate_MS(ms, model, F2, P2):
@@ -41,7 +48,7 @@ def parse_args():
                         default=NUM_EPOCHS, type=int)
     parser.add_argument('--bs', dest='bs',
                         help='batch_size',
-                        default=1, type=int)
+                        default=1, type=int)  # 单卡改回1
     parser.add_argument('--num_workers', dest='num_workers',
                         help='num_workers',
                         default=1, type=int)
@@ -179,16 +186,33 @@ def bptt_hsm(data, hidden, target, model, criterion, bptt_len, bptt_step):
 
 if __name__ == '__main__':
     args = parse_args()
+    # Trainset = DAVIS(DAVIS_ROOT, imset='2016/train.txt')
+    # Trainloader = data.DataLoader(Trainset, batch_size=1, shuffle=True, num_workers=2)
+    #
+    # Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
+    # Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=2)
+
+    # Define dataset...
     Trainset = DAVIS(DAVIS_ROOT, imset='2016/train.txt')
-    Trainloader = data.DataLoader(Trainset, batch_size=1, shuffle=True, num_workers=2)
+    # Partition dataset among workers using DistributedSampler
+    train_sampler = torch.utils.data.distributed.DistributedSampler(
+        Trainset, num_replicas=hvd.size(), rank=hvd.rank())
+    Trainloader = torch.utils.data.DataLoader(Trainset, batch_size=args.bs, sampler=train_sampler, num_workers=2)
 
+    # Define dataset...
     Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
-    Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=2)
+    # Partition dataset among workers using DistributedSampler
+    test_sampler = torch.utils.data.distributed.DistributedSampler(
+        Testset, num_replicas=hvd.size(), rank=hvd.rank())
+    Testloader = torch.utils.data.DataLoader(Testset, batch_size=args.bs, sampler=test_sampler, num_workers=2)
 
-    # model = RGMP()
-    model = nn.DataParallel(RGMP())
+    model = RGMP()
     if torch.cuda.is_available():
         model.cuda()
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        # 就这一行
+        model = nn.DataParallel(model)
 
     writer = SummaryWriter(tensorboard_log)
     start_epoch = 0
@@ -221,8 +245,16 @@ if __name__ == '__main__':
 
     criterion = torch.nn.BCELoss()
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=0.9)
+
+    # Add Horovod Distributed Optimizer
+    optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
+
+    # Broadcast parameters from rank 0 to all other processes.
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+
     iters_per_epoch = len(Trainloader)
     for epoch in range(start_epoch, args.num_epochs):
+        starttime = time.time()
         if epoch % args.eval_epoch == 1:
             # testing
             with torch.no_grad():
@@ -280,7 +312,6 @@ if __name__ == '__main__':
                 all_F = all_F[:, :, start_frame: start_frame + args.bptt_len]
                 all_M = all_M[:, :, start_frame: start_frame + args.bptt_len]
 
-            tt = time.time()
 
             B, C, T, H, W = all_M.shape
             all_E = torch.zeros(B, C, T, H, W)
@@ -341,3 +372,7 @@ if __name__ == '__main__':
                         'optimizer': optimizer.state_dict(),
                         },
                        latest_name)
+        endtime = time.time()
+        dtime = endtime - starttime
+
+        print("epoch%d运行时间：%.8s s" % (epoch, dtime))
