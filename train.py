@@ -252,6 +252,10 @@ if __name__ == '__main__':
     # Broadcast parameters from rank 0 to all other processes.
     hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 
+    # with writer:
+    #     writer.add_graph(model,Frames.squeeze())
+    # 画不出来的,因为model_RGMP并没有直入直出,而是每次去用了其中的一部分,直接画没法画的
+
     iters_per_epoch = len(Trainloader)
     for epoch in range(start_epoch, args.num_epochs):
         starttime = time.time()
@@ -292,10 +296,10 @@ if __name__ == '__main__':
                 writer.add_scalar('Val/IOU', iOU, epoch)
                 print('loss: {}'.format(loss))
                 print('IoU: {}'.format(iOU))
-
-                video_thread = threading.Thread(target=log_mask,
-                                                args=(all_F, all_E, info, writer, 'Val/frames', 'Val/masks'))
-                video_thread.start()
+                if hvd.local_rank() == 0:
+                    video_thread = threading.Thread(target=log_mask,
+                                                    args=(all_F, all_E, info, writer, 'Val/frames', 'Val/masks'))
+                    video_thread.start()
 
         # training
         model.train()
@@ -344,22 +348,23 @@ if __name__ == '__main__':
                 optimizer.step()
 
             # logging and display
-            if (i + 1) % args.disp_interval == 0:
+            if (i + 1) % args.disp_interval == 0 and hvd.local_rank() == 0:
                 writer.add_scalar('Train/BCE', loss / counter, i + epoch * iters_per_epoch)
                 writer.add_scalar('Train/IOU', iou(torch.cat((1 - all_E, all_E), dim=1), all_M),
                                   i + epoch * iters_per_epoch)
+
                 print('loss: {}'.format(loss / counter))
 
-            if epoch % 10 == 1 and i == 0:
+            if epoch % 10 == 1 and i == 0 and hvd.local_rank() == 0:
                 video_thread = threading.Thread(target=log_mask, args=(all_F, all_E, info, writer))
                 video_thread.start()
 
-        if epoch % 10 == 0 and epoch > 0:
+        if epoch % 10 == 0 and epoch > 0 and hvd.local_rank() == 0:
             save_name = '{}/{}.pth'.format(MODEL_DIR, epoch)
             latest_name = '{}/latest.pth'.format(MODEL_DIR)
             file_dir = os.path.split(save_name)[0]
             if not os.path.isdir(file_dir):
-                os.makedirs(file_dir)  # 使用horovod多线程时候,必须自己创建,否则创建两遍文件夹,系统会报错
+                os.makedirs(file_dir)
             if not os.path.exists(save_name):
                 os.system(r'touch %s' % save_name)
             torch.save({'epoch': epoch,
@@ -372,6 +377,7 @@ if __name__ == '__main__':
                         'optimizer': optimizer.state_dict(),
                         },
                        latest_name)
+            print("local_rank:%d have saved two models" % hvd.local_rank())
         endtime = time.time()
         dtime = endtime - starttime
 

@@ -34,6 +34,7 @@ python run.py -MO
 ``` python3 train.py```
 ### If you want use horovod
 e.g. one machine with two GPUs
+最好能在train.py所在的文件夹下运行,在主文件夹下运行会发生不知名错误.
 ```
 horovodrun -np 2 -H localhost:2 python train.py
 ```
@@ -43,7 +44,14 @@ Details: please read this [reference](https://github.com/horovod/horovod/issues/
 ## TensorBoard Support
 Install [TensorBoardX](https://github.com/lanpa/tensorboard-pytorch) to view loss, IoU and generated masks in real-time during training.
 
-
+## about Horovod
+在本次,单机双GPUs的例子中,Horovod产生3个python进程,两个用于GPU计算,一个用于在GPU之上整合信息.  
+多级多卡的本质是利用SSH操纵多个Python进程,以此来控制多个GPUs.
+区分多个卡之间的操作,e.g.存储模型时候,只需要存一个,我们则通过
+```
+hvd.local_rank()
+```
+来区分他们.不同的进程,他们的值不同.
   
 
 
