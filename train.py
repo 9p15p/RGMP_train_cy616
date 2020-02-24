@@ -197,14 +197,14 @@ if __name__ == '__main__':
     # Partition dataset among workers using DistributedSampler
     train_sampler = torch.utils.data.distributed.DistributedSampler(
         Trainset, num_replicas=hvd.size(), rank=hvd.rank())
-    Trainloader = torch.utils.data.DataLoader(Trainset, batch_size=args.bs, sampler=train_sampler, num_workers=2)
+    Trainloader = torch.utils.data.DataLoader(Trainset, batch_size=args.bs, sampler=train_sampler)
 
     # Define dataset...
     Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
     # Partition dataset among workers using DistributedSampler
     test_sampler = torch.utils.data.distributed.DistributedSampler(
         Testset, num_replicas=hvd.size(), rank=hvd.rank())
-    Testloader = torch.utils.data.DataLoader(Testset, batch_size=args.bs, sampler=test_sampler, num_workers=2)
+    Testloader = torch.utils.data.DataLoader(Testset, batch_size=args.bs, sampler=test_sampler)
 
     model = RGMP()
     if torch.cuda.is_available():
@@ -359,7 +359,7 @@ if __name__ == '__main__':
             latest_name = '{}/latest.pth'.format(MODEL_DIR)
             file_dir = os.path.split(save_name)[0]
             if not os.path.isdir(file_dir):
-                os.makedirs(file_dir)
+                os.makedirs(file_dir)  # 使用horovod多线程时候,必须自己创建,否则创建两遍文件夹,系统会报错
             if not os.path.exists(save_name):
                 os.system(r'touch %s' % save_name)
             torch.save({'epoch': epoch,
